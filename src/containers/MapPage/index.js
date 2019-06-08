@@ -1,15 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import queryString from 'query-string';
+import React, { useState, useEffect, useRef } from 'react';
+// import queryString from 'query-string';
 import PlaceInput from 'src/components/PlaceInput';
-import Map from 'src/components/Map';
+import PlaceInfo from 'src/components/PlaceInfo';
 import * as Styled from './styles';
 
 const MapPage = ({ location }) => {
   // console.log('location: ', queryString.parse(location.search));
 
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [markers, setMarkers] = useState(null);
+  const [map, setMap] = useState(null);
+  const [placeInfo, setPlaceInfo] = useState(null);
+  const mapEl = useRef(null);
 
-  //add script
+  const onScriptLoad = () => {
+    const losAngeles = { lat: 34.045575, lng: -118.246866 };
+    setMap(
+      new window.google.maps.Map(mapEl.current, {
+        center: losAngeles,
+        zoom: 12,
+      }),
+    );
+  };
+
   useEffect(() => {
     const script = document.createElement('script');
     script.type = 'text/javascript';
@@ -20,26 +33,57 @@ const MapPage = ({ location }) => {
 
     if (!window.google) {
       headScript.parentNode.insertBefore(script, headScript);
+      script.addEventListener('load', onScriptLoad);
+      return () => script.removeEventListener('load', onScriptLoad);
+    } else {
+      onScriptLoad();
     }
     setScriptLoaded(true);
   }, [window.google]);
 
+  useEffect(() => {
+    if (map) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            var pos = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+
+            map.setCenter(pos);
+          },
+          function() {
+            //do something when user blocks location?
+          },
+        );
+      } else {
+        // console.log('Geolocation is not supported for this Browser/OS.');
+      }
+    }
+  }, [map]);
+
   return (
-    <>
-      <Styled.SearchBarContainer>
-        <PlaceInput
-          onFormSubmit={() => console.log('hello')}
-          scriptLoaded={scriptLoaded}
-        />
-      </Styled.SearchBarContainer>
-      <Styled.Container>
-        <Styled.LeftColumn>
-        <Map scriptLoaded={scriptLoaded} />
+    <Styled.Container>
+      <Styled.LeftColumn>
+        <Styled.SearchBarContainer>
+          <PlaceInput
+            onFormSubmit={() => console.log('hello')}
+            scriptLoaded={scriptLoaded}
+            onSetPlaceInfo={setPlaceInfo}
+            markers={markers}
+            onSetMarkers={setMarkers}
+            map={map}
+            fullWidth
+          />
+        </Styled.SearchBarContainer>
+        <Styled.Map ref={mapEl} scriptLoaded={scriptLoaded} />
       </Styled.LeftColumn>
-      </Styled.Container>
-      
-      
-    </>
+      <Styled.RightColumn>
+        {placeInfo && <PlaceInfo info={placeInfo} />}
+        {/*<PlaceInfo info={placeInfo} />*/}
+      </Styled.RightColumn>
+    </Styled.Container>
   );
 };
 
